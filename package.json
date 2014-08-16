@@ -1,6 +1,6 @@
 {
   "name": "media-library",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "a media library (indexer and search/browse api)",
   "main": "./lib/medialibrary",
   "scripts": {
@@ -14,7 +14,14 @@
     "id3",
     "music"
   ],
-  "author": "Guillaume Lecomte",
+  "author": {
+    "name": "Guillaume Lecomte",
+    "email": "guillaume86@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/guillaume86/media-library.git"
+  },
   "license": "ISC",
   "devDependencies": {
     "gulp-coffee": "^2.1.1",
