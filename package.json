@@ -1,0 +1,35 @@
+{
+  "name": "media-library",
+  "version": "0.0.0",
+  "description": "a media library (indexer and search/browse api)",
+  "main": "./lib/medialibrary",
+  "scripts": {
+    "test": "mocha --compilers coffee:coffee-script/register test/*.coffee"
+  },
+  "keywords": [
+    "media",
+    "mp3",
+    "audio",
+    "library",
+    "id3",
+    "music"
+  ],
+  "author": "Guillaume Lecomte",
+  "license": "ISC",
+  "devDependencies": {
+    "gulp-coffee": "^2.1.1",
+    "coffee-script": "^1.7.1",
+    "gulp-util": "^3.0.0",
+    "gulp": "^3.8.7",
+    "gulp-mocha": "^1.0.0",
+    "gulp-watch": "^0.6.9",
+    "should": "^4.0.4"
+  },
+  "dependencies": {
+    "walk": "^2.3.3",
+    "musicmetadata": "^0.4.4",
+    "nedb": "^0.10.7",
+    "q": "^1.0.1",
+    "lodash": "^2.4.1"
+  }
+}
