@@ -1,3 +1,7 @@
+# Installation
+
+    $ npm install media-library
+
 # Usage
 
     var MediaLibary = require('media-library')
