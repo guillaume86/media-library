@@ -10,6 +10,8 @@ indexPath = Q.nfbind(indexPath)
 escapeRegExp = (str) ->
   str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")
 
+activeScan = null
+
 class MediaLibrary
   constructor: (@opts) ->
     filename = joinPath(@opts.databasePath, 'ml-tracks.db') if @opts.databasePath
@@ -25,7 +27,7 @@ class MediaLibrary
     deferred = Q.defer()
     db.findOne({ path: path }, (err, result) ->
       if result
-        deferred.reject(new Error("track already in database: " + root + '/' + path))
+        deferred.resolve(result)
         return
       metadata.picture = undefined
       metadata.root = root
@@ -41,6 +43,8 @@ class MediaLibrary
 
   # scan the paths and returns the number of found file
   scan: ->
+    # only one scan allowed at a time
+    return activeScan if activeScan
     deferred = Q.defer()
     trackCount = 0
     promises = for root in @opts.paths
@@ -53,9 +57,14 @@ class MediaLibrary
         trackCount++
       )
       pathDonePromise.then(-> Q.all(addPromises))
+
     Q.all(promises).then(deferred.resolve)
-    deferred.promise
-      .then(-> trackCount)
+    activeScan = deferred.promise
+      .then(->
+        activeScan = null
+        trackCount
+      )
+    activeScan
 
   tracks: ->
     @dbfind({})
