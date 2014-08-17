@@ -1,3 +1,6 @@
+[![NPM version](https://badge.fury.io/js/media-library.svg)](http://badge.fury.io/js/media-library)
+[![NPM downloads](http://img.shields.io/npm/dm/localeval.svg)](http://img.shields.io/npm/dm/localeval.svg)
+
 # Installation
 
     $ npm install media-library
@@ -7,12 +10,12 @@
     var MediaLibary = require('media-library')
     var library = new MediaLibrary({
       // persistent storage location (optional)
-      databaseFile: 'library.nedb'
+      databasePath: './'
       // the paths to scan
       paths: [ 'C:\\data\\music', 'C:\\Users\\me\\music' ]
     });
 
-    // Scanning files
+    // Scanning files (only needed at first start and when paths are added)
     library.scan()
       .then(function() {
 

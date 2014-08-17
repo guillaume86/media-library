@@ -6,8 +6,8 @@ mm = require 'musicmetadata'
 audiofileRegex = /\.(?:wav|mp3|wma|flac|ape|aac|m4a|ogg)$/i
 
 indexPath = (path, foundCb, doneCb) ->
-  parserCount = 0
-  waitingParser = false
+  pendingParsers = 0
+  walkDone = false
 
   walker = walk.walk(path)
 
@@ -21,27 +21,25 @@ indexPath = (path, foundCb, doneCb) ->
   )
 
   walker.on("file", (root, fileStats, next) ->
-    if !audiofileRegex.test(fileStats.name)
+    if !audiofileRegex.test(fileStats.name) or fileStats.size == 0
       next()
       return
 
     fullpath = joinPath(root, fileStats.name)
-    # console.log(fullpath)
     stream = fs.createReadStream(fullpath)
     parser = mm(stream)
 
-    parserCount++
+    pendingParsers++
     foundmetadata = false
 
     # listen for the metadata event
     parser.on('metadata', (result) ->
       foundmetadata = true
       foundCb(fullpath, result)
-      #next()
     )
 
     parser.on('done', (err) ->
-      parserCount--
+      pendingParsers--
       if err
         console.log('parser error')
         console.log(err)
@@ -50,13 +48,13 @@ indexPath = (path, foundCb, doneCb) ->
       if !foundmetadata
         foundCb(fullpath, {})
 
-      #next()
+      next()
 
-      if parserCount == 0 and waitingParser
+      if walkDone and pendingParsers == 0
         doneCb()
     )
 
-    next()
+    #next()
   )
 
   walker.on('error', (err) ->
@@ -64,11 +62,11 @@ indexPath = (path, foundCb, doneCb) ->
     console.log(err)
   )
 
-  walker.on('end', (args...) ->
-    if parserCount == 0
+  walker.on('end', ->
+    if pendingParsers == 0
       doneCb()
     else
-      waitingParser = true
+      walkDone = true
   )
 
 
