@@ -1,6 +1,6 @@
 {
   "name": "media-library",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "a media library (indexer and search/browse api)",
   "main": "./lib/medialibrary",
   "scripts": {
