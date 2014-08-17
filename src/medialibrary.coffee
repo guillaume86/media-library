@@ -6,6 +6,9 @@ _ = require 'lodash'
 # transform to promise syntax
 indexPath = Q.nfbind(indexPath)
 
+escapeRegExp = (str) ->
+  str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")
+
 class MediaLibrary
   constructor: (@opts) ->
     @db = new Datastore(
@@ -18,7 +21,7 @@ class MediaLibrary
   addTrack: (root, path, metadata) ->
     db = @db
     deferred = Q.defer()
-    db.findOne({ root: root, path: path }, (err, result) ->
+    db.findOne({ path: path }, (err, result) ->
       if result
         deferred.reject(new Error("track already in database: " + root + '/' + path))
         return
@@ -63,10 +66,10 @@ class MediaLibrary
   find: (track) ->
     query = {}
     if track.artist
-      artistRegex = new RegExp([track.artist].join(""), "i")
+      artistRegex = new RegExp([escapeRegExp(track.artist)].join(""), "i")
       query.artist = artistRegex
     if track.title
-      titleRegex = new RegExp([track.title].join(""), "i")
+      titleRegex = new RegExp([escapeRegExp(track.title)].join(""), "i")
       query.title = titleRegex
     @dbfind(query)
 
