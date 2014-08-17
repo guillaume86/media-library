@@ -1,3 +1,4 @@
+joinPath = require('path').join
 Datastore = require 'nedb'
 indexPath = require './indexer'
 Q = require 'q'
@@ -11,8 +12,9 @@ escapeRegExp = (str) ->
 
 class MediaLibrary
   constructor: (@opts) ->
+    filename = joinPath(@opts.databasePath, 'ml-tracks.db') if @opts.databasePath
     @db = new Datastore(
-      filename: @opts.databaseFile
+      filename: filename
       autoload: true
     )
 
@@ -39,15 +41,20 @@ class MediaLibrary
 
   # scan the paths and returns the number of found file
   scan: ->
+    deferred = Q.defer()
     trackCount = 0
     promises = for root in @opts.paths
       addPromises = []
+      addPromise = null
       pathDonePromise = indexPath(root, (path, metadata) =>
-        addPromises.push(@addTrack(root, path, metadata))
+        addPromise = @addTrack(root, path, metadata)
+        addPromise.then((track) -> deferred.notify(track))
+        addPromises.push(addPromise)
         trackCount++
       )
       pathDonePromise.then(-> Q.all(addPromises))
-    Q.all(promises)
+    Q.all(promises).then(deferred.resolve)
+    deferred.promise
       .then(-> trackCount)
 
   tracks: ->

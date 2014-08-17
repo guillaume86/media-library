@@ -4,7 +4,7 @@ MediaLibrary = require '../lib/medialibrary'
 
 dataset = require './dataset'
 opts =
-  # databaseFile: './test/test-database.nedb' # commented to use in memory database
+  # databaseFile: './test/' # commented to use in memory database
   paths: [dataset.path]
 
 clearDatabase = ->
@@ -29,6 +29,21 @@ describe('MediaLibrary', () ->
           count.should.equal(dataset.files.length)
           done()
         )
+        .fail(done)
+    )
+
+    it('should notify progress', (done) ->
+      notifyCount = 0
+      medialib.scan()
+        .progress((info) ->
+          notifyCount++
+        )
+        .then((count) ->
+          count.should.equal(dataset.files.length)
+          notifyCount.should.equal(dataset.files.length)
+          done()
+        )
+        .fail(done)
     )
 
     it('should insert path and metadata', (done) ->
@@ -44,6 +59,7 @@ describe('MediaLibrary', () ->
           track.artist[0].should.ok
           done()
         )
+        .fail(done)
     )
 
   )
@@ -51,7 +67,9 @@ describe('MediaLibrary', () ->
   describe('#tracks()', () ->
 
     beforeEach((done) ->
-      medialib.scan().then(-> done())
+      medialib.scan()
+      .then(-> done())
+      .fail(done)
     )
 
     it('should return tracks', (done) ->
@@ -60,6 +78,7 @@ describe('MediaLibrary', () ->
           tracks.should.be.instanceof(Array).and.have.lengthOf(dataset.files.length)
           done()
         )
+        .fail(done)
     )
 
   )
@@ -67,7 +86,9 @@ describe('MediaLibrary', () ->
   describe('#artists()', () ->
 
     beforeEach((done) ->
-      medialib.scan().then(-> done())
+      medialib.scan()
+      .then(-> done())
+      .fail(done)
     )
 
     it('should return distinct artists', (done) ->
@@ -76,6 +97,7 @@ describe('MediaLibrary', () ->
           artists.should.eql(['Artist 1', 'Artist 2'])
           done()
         )
+        .fail(done)
     )
 
   )
@@ -83,7 +105,9 @@ describe('MediaLibrary', () ->
   describe('#find()', () ->
 
     beforeEach((done) ->
-      medialib.scan().then(-> done())
+      medialib.scan()
+      .then(-> done())
+      .fail(done)
     )
 
     it('should find by artist', (done) ->
@@ -92,6 +116,7 @@ describe('MediaLibrary', () ->
           results.should.have.length(2)
           done()
         )
+        .fail(done)
     )
 
     it('should find by title', (done) ->
@@ -100,6 +125,7 @@ describe('MediaLibrary', () ->
           results.should.have.length(2)
           done()
         )
+        .fail(done)
     )
 
   )

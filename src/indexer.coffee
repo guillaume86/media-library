@@ -10,6 +10,16 @@ indexPath = (path, foundCb, doneCb) ->
   waitingParser = false
 
   walker = walk.walk(path)
+
+  # sort by name to get a better sense of progression
+  walker.on('names', (root, nodeNamesArray) ->
+    nodeNamesArray.sort((a, b) ->
+      return 1 if a > b
+      return -1 if a < b
+      return 0
+    )
+  )
+
   walker.on("file", (root, fileStats, next) ->
     if !audiofileRegex.test(fileStats.name)
       next()
@@ -19,14 +29,15 @@ indexPath = (path, foundCb, doneCb) ->
     # console.log(fullpath)
     stream = fs.createReadStream(fullpath)
     parser = mm(stream)
+
+    parserCount++
     foundmetadata = false
 
     # listen for the metadata event
-    parserCount++
     parser.on('metadata', (result) ->
       foundmetadata = true
       foundCb(fullpath, result)
-      next()
+      #next()
     )
 
     parser.on('done', (err) ->
@@ -39,11 +50,13 @@ indexPath = (path, foundCb, doneCb) ->
       if !foundmetadata
         foundCb(fullpath, {})
 
-      next()
+      #next()
 
       if parserCount == 0 and waitingParser
         doneCb()
     )
+
+    next()
   )
 
   walker.on('error', (err) ->
