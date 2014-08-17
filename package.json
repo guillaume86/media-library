@@ -4,7 +4,7 @@
   "description": "a media library (indexer and search/browse api)",
   "main": "./lib/medialibrary",
   "scripts": {
-    "test": "mocha --compilers coffee:coffee-script/register test/*.coffee"
+    "test": "gulp test"
   },
   "keywords": [
     "media",

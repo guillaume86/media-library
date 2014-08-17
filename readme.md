@@ -1,5 +1,6 @@
-[![NPM version](https://badge.fury.io/js/media-library.svg)](http://badge.fury.io/js/media-library)
-[![NPM downloads](http://img.shields.io/npm/dm/localeval.svg)](http://img.shields.io/npm/dm/localeval.svg)
+[![Build Status][travis-image]][travis-url]
+[![NPM version][npm-image]][npm-url]
+[![npm downloads][npm-downloads-image]][npm-url]
 
 # Installation
 
@@ -37,3 +38,10 @@
                 console.log(tracks);
             });
       });
+
+[npm-url]: https://npmjs.org/package/media-library
+[npm-image]: https://badge.fury.io/js/media-library.svg
+[npm-downloads-image]: http://img.shields.io/npm/dm/media-library.svg
+
+[travis-url]: https://travis-ci.org/guillaume86/media-library
+[travis-image]: https://api.travis-ci.org/guillaume86/media-library.svg?branch=master
