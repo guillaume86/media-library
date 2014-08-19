@@ -4,20 +4,12 @@ MediaLibrary = require '../lib/medialibrary'
 
 dataset = require './dataset'
 opts =
-  # databaseFile: './test/' # commented to use in memory database
   paths: [dataset.path]
-
-clearDatabase = ->
-  if opts.databaseFile and fs.existsSync(opts.databaseFile)
-    fs.unlinkSync(opts.databaseFile)
-
-
 
 describe('MediaLibrary', () ->
   medialib = null
 
   beforeEach(->
-    clearDatabase()
     medialib = new MediaLibrary(opts)
   )
 
@@ -118,7 +110,10 @@ describe('MediaLibrary', () ->
     it('should return distinct albums', (done) ->
       medialib.albums()
         .then((albums) ->
-          albums.should.eql(['Album 1', 'Album 2'])
+          albums.map((a) -> a.artist)
+            .should.eql(['Artist 1', 'Artist 2'])
+          albums.map((a) -> a.title)
+            .should.eql(['Album 1', 'Album 2'])
           done()
         )
         .fail(done)
@@ -175,12 +170,19 @@ describe('MediaLibrary', () ->
         .fail(done)
     )
 
-    it('should return subfolders and files when called with a folder path', (done) ->
-      medialib.files('./test/data/')
+    it('should return subfolders when called with a folder path', (done) ->
+      medialib.files(dataset.path)
         .then((files) ->
-          files.should.be.instanceof(Array).and.have.lengthOf(4)
           files.filter((file) -> file.type == 'folder')
             .should.have.lengthOf(1)
+          done()
+        )
+        .fail(done)
+    )
+
+    it('should return files when called with a folder path', (done) ->
+      medialib.files(dataset.path)
+        .then((files) ->
           files.filter((file) -> file.type == 'file')
             .should.have.lengthOf(3)
           done()

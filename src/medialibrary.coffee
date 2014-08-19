@@ -128,10 +128,14 @@ class MediaLibrary
       .then((tracks) ->
         tracks
         .filter((t) -> !!t.album)
-        .map((t) -> t.album)
+        .map((t) ->
+          title: t.album
+          artist: t.artist?[0]
+          id: [t.artist?[0], t.album].join('|||')
+        )
       )
-      .then(_.uniq)
-      .then((albums) -> albums.sort())
+      .then((albums) -> _.uniq(albums, (a) -> a.id))
+      .then((albums) -> _.sortBy(albums, 'id'))
 
   files: (path) ->
     unless path?
@@ -156,6 +160,9 @@ class MediaLibrary
     if track.title
       titleRegex = new RegExp([escapeRegExp(track.title)].join(""), "i")
       query.title = titleRegex
+    if track.album
+      albumRegex = new RegExp([escapeRegExp(track.album)].join(""), "i")
+      query.album = albumRegex
     @dbfind.track(query)
 
 
