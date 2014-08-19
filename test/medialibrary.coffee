@@ -50,7 +50,8 @@ describe('MediaLibrary', () ->
       medialib.scan()
         .then(-> medialib.tracks())
         .then((tracks) ->
-          track = tracks.filter((t) -> /Artist 1 - Track 1\.mp3$/.test(t.path))[0]
+          track = tracks
+            .filter((t) -> /Artist 1 - Track 1\.mp3$/.test(t.path))[0]
           track.should.be.ok
           track.root.should.ok
           track.path.should.ok
@@ -64,6 +65,7 @@ describe('MediaLibrary', () ->
 
   )
 
+
   describe('#tracks()', () ->
 
     beforeEach((done) ->
@@ -75,13 +77,15 @@ describe('MediaLibrary', () ->
     it('should return tracks', (done) ->
       medialib.tracks()
         .then((tracks) ->
-          tracks.should.be.instanceof(Array).and.have.lengthOf(dataset.files.length)
+          tracks.should.be.instanceof(Array)
+            .and.have.lengthOf(dataset.files.length)
           done()
         )
         .fail(done)
     )
 
   )
+
 
   describe('#artists()', () ->
 
@@ -102,7 +106,28 @@ describe('MediaLibrary', () ->
 
   )
 
-  describe('#find()', () ->
+
+  describe('#albums()', () ->
+
+    beforeEach((done) ->
+      medialib.scan()
+      .then(-> done())
+      .fail(done)
+    )
+
+    it('should return distinct albums', (done) ->
+      medialib.albums()
+        .then((albums) ->
+          albums.should.eql(['Album 1', 'Album 2'])
+          done()
+        )
+        .fail(done)
+    )
+
+  )
+
+
+  describe('#findTrack()', () ->
 
     beforeEach((done) ->
       medialib.scan()
@@ -111,7 +136,7 @@ describe('MediaLibrary', () ->
     )
 
     it('should find by artist', (done) ->
-      medialib.find(artist: 'Artist 1')
+      medialib.findTrack(artist: 'Artist 1')
         .then((results) ->
           results.should.have.length(2)
           done()
@@ -120,7 +145,7 @@ describe('MediaLibrary', () ->
     )
 
     it('should find by title', (done) ->
-      medialib.find(title: 'Track 1')
+      medialib.findTrack(title: 'Track 1')
         .then((results) ->
           results.should.have.length(2)
           done()
@@ -129,5 +154,41 @@ describe('MediaLibrary', () ->
     )
 
   )
+
+
+  describe('#files()', () ->
+
+    beforeEach((done) ->
+      medialib.scan()
+      .then(-> done())
+      .fail(done)
+    )
+
+    it('should return root folder if called without argument', (done) ->
+      medialib.files()
+        .then((files) ->
+          files.should.be.instanceof(Array).and.have.lengthOf(1)
+          files[0].should.have.property('type', 'folder')
+          files[0].should.have.property('name', 'data')
+          done()
+        )
+        .fail(done)
+    )
+
+    it('should return subfolders and files when called with a folder path', (done) ->
+      medialib.files('./test/data/')
+        .then((files) ->
+          files.should.be.instanceof(Array).and.have.lengthOf(4)
+          files.filter((file) -> file.type == 'folder')
+            .should.have.lengthOf(1)
+          files.filter((file) -> file.type == 'file')
+            .should.have.lengthOf(3)
+          done()
+        )
+        .fail(done)
+    )
+
+  )
+
 
 )

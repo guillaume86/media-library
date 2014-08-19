@@ -1,4 +1,8 @@
+fs = require 'fs'
 joinPath = require('path').join
+basename = require('path').basename
+dirname = require('path').dirname
+pathSep = require('path').sep
 Datastore = require 'nedb'
 indexPath = require './indexer'
 Q = require 'q'
@@ -12,18 +16,58 @@ escapeRegExp = (str) ->
 
 activeScan = null
 
+mapPathToFolder = (path) ->
+  path: path
+  name: basename(path)
+  type: 'folder'
+
+mapTrackToFile = (track) ->
+  path: track.path
+  name: basename(track.path)
+  type: 'file'
+  track: track
+
+normalizePath = (path) ->
+  path = path.replace(/(?:\\|\/)/g, pathSep)
+  # remove leading ./
+  if path[0...2] == ('.' + pathSep)
+    path = path[2...]
+  # remove leading /
+  # but not if "\\" because it's used in windows to access remote shares
+  if path.length > 1 and path[0] == pathSep and path[1] != pathSep
+    path = path[1...]
+  # remove trailing /
+  if path.length > 1 and path[-1...] == pathSep
+    path = path[...-1]
+  path
+
+getPathRegex = (path) ->
+  new RegExp([
+    '^',
+    escapeRegExp(path + pathSep),
+    '[^', escapeRegExp(pathSep), ']+',
+    '$'
+  ].join(""))
+
 class MediaLibrary
   constructor: (@opts) ->
-    filename = joinPath(@opts.databasePath, 'ml-tracks.db') if @opts.databasePath
-    @db = new Datastore(
-      filename: filename
-      autoload: true
-    )
+    if @opts.databasePath
+      trackdbpath = joinPath(@opts.databasePath, 'ml-tracks.db')
+      #albumdbpath = joinPath(@opts.databasePath, 'ml-albums.db')
+      #artistdbpath = joinPath(@opts.databasePath, 'ml-artists.db')
 
-    @dbfind = Q.nbind(@db.find, @db)
+    @db =
+      track: new Datastore(filename: trackdbpath, autoload: true)
+      #album: new Datastore(filename: albumdbpath, autoload: true)
+      #artist: new Datastore(filename: artistdbpath, autoload: true)
+
+    @dbfind =
+      track: Q.nbind(@db.track.find, @db.track)
+
+    @opts.paths = @opts.paths.map(normalizePath)
 
   addTrack: (root, path, metadata) ->
-    db = @db
+    db = @db.track
     deferred = Q.defer()
     db.findOne({ path: path }, (err, result) ->
       if result
@@ -67,10 +111,10 @@ class MediaLibrary
     activeScan
 
   tracks: ->
-    @dbfind({})
+    @dbfind.track({})
 
   artists: ->
-    @dbfind({})
+    @dbfind.track({})
       .then((tracks) ->
         tracks
         .filter((t) -> t.artist && t.artist.length)
@@ -79,7 +123,32 @@ class MediaLibrary
       .then(_.uniq)
       .then((artists) -> artists.sort())
 
-  find: (track) ->
+  albums: ->
+    @dbfind.track({})
+      .then((tracks) ->
+        tracks
+        .filter((t) -> !!t.album)
+        .map((t) -> t.album)
+      )
+      .then(_.uniq)
+      .then((albums) -> albums.sort())
+
+  files: (path) ->
+    unless path?
+      return Q(this.opts.paths.map(mapPathToFolder))
+    else
+      path = normalizePath(path)
+      names = fs.readdirSync(path)
+      folders = names
+        .map((name) -> joinPath(path, name))
+        .filter((path) -> fs.statSync(path).isDirectory())
+        .map(mapPathToFolder)
+
+      return @dbfind.track({ path: getPathRegex(path) })
+        .then((tracks) -> folders.concat(tracks.map(mapTrackToFile)))
+
+
+  findTrack: (track) ->
     query = {}
     if track.artist
       artistRegex = new RegExp([escapeRegExp(track.artist)].join(""), "i")
@@ -87,7 +156,7 @@ class MediaLibrary
     if track.title
       titleRegex = new RegExp([escapeRegExp(track.title)].join(""), "i")
       query.title = titleRegex
-    @dbfind(query)
+    @dbfind.track(query)
 
 
 module.exports = MediaLibrary

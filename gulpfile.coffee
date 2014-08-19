@@ -2,7 +2,6 @@ gulp = require 'gulp'
 coffee = require 'gulp-coffee'
 gutil = require 'gulp-util'
 mocha = require 'gulp-mocha'
-watch = require 'gulp-watch'
 
 config =
   coffee: './src/*.coffee'
@@ -29,8 +28,9 @@ gulp.task('test', ->
     ))
 )
 
-gulp.task('watch', ->
-  watch({ glob: [config.coffee, config.tests], read: false }, ['build', 'test'])
+gulp.task('watch', ['build'], ->
+  gulp.watch([config.coffee], ['build'])
+  gulp.watch(['./lib/*.js', config.tests], ['test'])
 )
 
 gulp.task('build', ['coffee'])
