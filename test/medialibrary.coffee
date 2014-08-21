@@ -76,6 +76,16 @@ describe('MediaLibrary', () ->
         .fail(done)
     )
 
+    it('should return artist tracks when called with artist filter', (done) ->
+      medialib.tracks({ artist: 'Artist 1' })
+        .then((tracks) ->
+          tracks.should.be.instanceof(Array)
+            .and.have.lengthOf(2)
+          done()
+        )
+        .fail(done)
+    )
+
   )
 
 

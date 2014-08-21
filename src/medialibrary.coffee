@@ -108,15 +108,12 @@ class MediaLibrary
 
   tracks: (query = {}) ->
     q = _.clone(query)
-    if q.artist
-      q.artist = [query.artist]
-
     @dbfind.track(q)
 
   artists: (query = {}) ->
     q = _.clone(query)
     if q.name
-      q.artist = [query.name]
+      q.artist = query.name
       delete q.name
 
     @dbfind.track({})
