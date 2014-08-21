@@ -14,8 +14,6 @@ indexPath = Q.nfbind(indexPath)
 escapeRegExp = (str) ->
   str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")
 
-activeScan = null
-
 mapPathToFolder = (path) ->
   path: path
   name: basename(path)
@@ -67,53 +65,60 @@ class MediaLibrary
     @opts.paths = @opts.paths.map(normalizePath)
 
   addTrack: (root, path, metadata) ->
-    db = @db.track
-    deferred = Q.defer()
-    db.findOne({ path: path }, (err, result) ->
-      if result
-        deferred.resolve(result)
-        return
-      metadata.picture = undefined
-      metadata.root = root
-      metadata.path = path
-      db.insert(metadata, (err, metadata) ->
-        if err
-          deferred.reject(new Error(err))
-          return
-        deferred.resolve(metadata)
+    Q.Promise((resolve, reject) =>
+      db = @db.track
+      db.findOne({ path: path }, (err, result) ->
+        if result
+          return resolve(result)
+        metadata.picture = undefined
+        metadata.root = root
+        metadata.path = path
+        db.insert(metadata, (err, metadata) ->
+          if err
+            return reject(new Error(err))
+          resolve(metadata)
+        )
       )
     )
-    deferred.promise
 
   # scan the paths and returns the number of found file
   scan: ->
     # only one scan allowed at a time
-    return activeScan if activeScan
-    deferred = Q.defer()
-    trackCount = 0
-    promises = for root in @opts.paths
-      addPromises = []
-      addPromise = null
-      pathDonePromise = indexPath(root, (path, metadata) =>
-        addPromise = @addTrack(root, path, metadata)
-        addPromise.then((track) -> deferred.notify(track))
-        addPromises.push(addPromise)
-        trackCount++
+    return @_activeScan if @_activeScan
+    @_activeScan = Q.Promise((resolve, reject, notify) =>
+      trackCount = 0
+      pathPromises = for root in @opts.paths
+        addPromises = []
+        addPromise = null
+        pathDonePromise = indexPath(root, (path, metadata) =>
+          addPromise = @addTrack(root, path, metadata)
+          addPromise.then((track) -> notify(track))
+          addPromises.push(addPromise)
+          trackCount++
+        )
+        pathDonePromise.then(-> Q.all(addPromises))
+
+      Q.all(pathPromises)
+      .then(=>
+        @_activeScan = null
+        resolve(trackCount)
       )
-      pathDonePromise.then(-> Q.all(addPromises))
+      .catch(reject)
+    )
 
-    Q.all(promises).then(deferred.resolve)
-    activeScan = deferred.promise
-      .then(->
-        activeScan = null
-        trackCount
-      )
-    activeScan
+  tracks: (query = {}) ->
+    q = _.clone(query)
+    if q.artist
+      q.artist = [query.artist]
 
-  tracks: ->
-    @dbfind.track({})
+    @dbfind.track(q)
 
-  artists: ->
+  artists: (query = {}) ->
+    q = _.clone(query)
+    if q.name
+      q.artist = [query.name]
+      delete q.name
+
     @dbfind.track({})
       .then((tracks) ->
         tracks
@@ -121,10 +126,17 @@ class MediaLibrary
         .map((t) -> t.artist[0])
       )
       .then(_.uniq)
-      .then((artists) -> artists.sort())
+      .then((artists) -> artists.sort().map((a) -> { name: a }))
 
-  albums: ->
-    @dbfind.track({})
+  albums: (query = {}) ->
+    q = _.clone(query)
+    if q.title
+      q.album = q.title
+      delete q.title
+    if q.artist
+      q.artist = [query.artist]
+
+    @dbfind.track(q)
       .then((tracks) ->
         tracks
         .filter((t) -> !!t.album)
@@ -152,7 +164,7 @@ class MediaLibrary
         .then((tracks) -> folders.concat(tracks.map(mapTrackToFile)))
 
 
-  findTrack: (track) ->
+  findTracks: (track) ->
     query = {}
     if track.artist
       artistRegex = new RegExp([escapeRegExp(track.artist)].join(""), "i")

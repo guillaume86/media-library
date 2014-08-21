@@ -28,7 +28,7 @@ gulp.task('test', ->
     ))
 )
 
-gulp.task('watch', ['build'], ->
+gulp.task('watch', ['build', 'test'], ->
   gulp.watch([config.coffee], ['build'])
   gulp.watch(['./lib/*.js', config.tests], ['test'])
 )

@@ -90,7 +90,7 @@ describe('MediaLibrary', () ->
     it('should return distinct artists', (done) ->
       medialib.artists()
         .then((artists) ->
-          artists.should.eql(['Artist 1', 'Artist 2'])
+          artists.map((a) -> a.name).should.eql(['Artist 1', 'Artist 2'])
           done()
         )
         .fail(done)
@@ -122,7 +122,7 @@ describe('MediaLibrary', () ->
   )
 
 
-  describe('#findTrack()', () ->
+  describe('#findTracks()', () ->
 
     beforeEach((done) ->
       medialib.scan()
@@ -131,7 +131,7 @@ describe('MediaLibrary', () ->
     )
 
     it('should find by artist', (done) ->
-      medialib.findTrack(artist: 'Artist 1')
+      medialib.findTracks(artist: 'Artist 1')
         .then((results) ->
           results.should.have.length(2)
           done()
@@ -140,7 +140,7 @@ describe('MediaLibrary', () ->
     )
 
     it('should find by title', (done) ->
-      medialib.findTrack(title: 'Track 1')
+      medialib.findTracks(title: 'Track 1')
         .then((results) ->
           results.should.have.length(2)
           done()
