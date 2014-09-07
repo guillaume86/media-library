@@ -24,6 +24,10 @@ mapTrackToFile = (track) ->
   name: basename(track.path)
   type: 'file'
   track: track
+  
+compare = (x, y) ->
+  return 0 if x == y
+  return (if x > y then 1 else -1)
 
 normalizePath = (path) ->
   path = path.replace(/(?:\\|\/)/g, pathSep)
@@ -109,6 +113,16 @@ class MediaLibrary
   tracks: (query = {}) ->
     q = _.clone(query)
     @dbfind.track(q)
+    .then((tracks) ->
+      # sort by artist, album, track no
+      tracks.sort((t1, t2) ->
+        c = compare(t1.artist?[0], t2.artist?[0])
+        return c if c != 0
+        c = compare(t1.album, t2.album)
+        return c if c != 0
+        return compare(t1.track?.no, t2.track?.no)
+      )
+    )
 
   artists: (query = {}) ->
     q = _.clone(query)
@@ -136,15 +150,41 @@ class MediaLibrary
     @dbfind.track(q)
       .then((tracks) ->
         tracks
-        .filter((t) -> !!t.album)
-        .map((t) ->
-          title: t.album
-          artist: t.artist?[0]
-          id: [t.artist?[0], t.album].join('|||')
+        .filter((track) -> !!track.album)
+        .map((track) ->
+          title: track.album
+          artist: track.albumartist?[0] || track.artist?[0]
+          path: track.path
+          dirpath: dirname(track.path)
+          track_no: track.track?.no
+          year: track.year
+          _id: track._id
         )
       )
-      .then((albums) -> _.uniq(albums, (a) -> a.id))
-      .then((albums) -> _.sortBy(albums, 'id'))
+      .then((albumtracks) ->
+        _.chain(albumtracks)
+        .groupBy('dirpath') # group by directory
+        .map((pathtracks, dirpath) -> 
+          _.chain(pathtracks)
+          .groupBy('title')
+          .map((tracks, title) ->
+            artists = _.uniq(tracks.map((t) -> t.artist))
+            years = _.uniq(tracks.filter((t) -> !!t.year).map((t) -> t.year))
+            return (
+              title: title
+              artist: (if artists.length > 1 then 'Various Artists' else artists[0])
+              artists: artists
+              year: (if years.length == 1 then years[0] else null)
+              dirpath: dirpath
+              tracks: _.sortBy(tracks.map((t) -> t._id), (t) -> t.track_no)
+            )
+          )
+          .value()
+        )
+        .flatten(true) # true for one level flattening
+        .value()
+      )
+      .then((albums) -> _.sortBy(albums, 'title'))
 
   files: (path) ->
     unless path?

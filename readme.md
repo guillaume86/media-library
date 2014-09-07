@@ -39,6 +39,12 @@
             });
       });
 
+# todo
+
+  - Compilations
+
+    Could auto detect by AlbumArtist and/or heuristic + manual setting
+
 [npm-url]: https://npmjs.org/package/media-library
 [npm-image]: https://badge.fury.io/js/media-library.svg
 [npm-downloads-image]: http://img.shields.io/npm/dm/media-library.svg
