@@ -18,7 +18,8 @@ indexer = require './musicindexer'
   escapeRegExp,
   mapPathToFolder,
   mapTrackToFile,
-  getPathRegex
+  getPathRegex,
+  immediatly
 } = require './utils'
 
 class MediaLibrary
@@ -36,15 +37,14 @@ class MediaLibrary
     return options
     
   # scan the paths and returns the number of found file
-  scan: (callback) ->    
+  scan: (callback = _.noop) ->
     # only one scan allowed at a time
     return @_activeScan if @_activeScan
     
     # TODO: filter to speed up rescan
-    callback ?= _.noop
     emitter = new EventEmitter()
     @_activeScan = true
-    _addTrack = @_addTrack.bind(@)
+    self = @
     async.series(@options.paths.map((dir) ->
       (callback) ->
         tracks = []
@@ -64,34 +64,29 @@ class MediaLibrary
         .on('done', -> callback(null, tracks))
         .start()
     ), (err, results) =>
-      @_activeScan = false
       if err
         console.error('scan error', err)
         emitter.emit('error', err)
         return callback(err, null)
       tracks = _.flatten(results, true)
-      async.parallel(tracks.map((track) ->
-        (callback) ->
-          _addTrack(track, callback)
-      ), (err, tracks) ->
+      self._addTracks(tracks, (err, tracks) ->
+        return callback(err) if err
         callback(null, tracks)
+        self._activeScan = false
         emitter.emit('done', tracks)
       )
     )
     
     return emitter
     
-  _addTrack: (track, callback) ->
+  _addTracks: (tracks, callback) ->
     db = @db
-    db.findOne({ path: track.path }, (err, foundTrack) ->
-      if foundTrack
-        # TODO: update
-        return callback(null, foundTrack)
-        
-      db.insert(track, (err, track) ->
-        if err
-          return callback(new Error(err))
-        return callback(null, track)
+    paths = tracks.map((track) -> track.path)
+    db.remove({ path: { $in: paths }}, {}, (err, numRemoved) ->
+      return callback(err) if err
+      db.insert(tracks, (err, tracks) ->
+        return callback(new Error(err)) if err
+        return callback(null, tracks)
       )
     )
 

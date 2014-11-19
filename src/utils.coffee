@@ -26,10 +26,13 @@ getPathRegex = (p) ->
     '$'
   ].join(""))
   
+immediatly = global.setImmediate || process.nextTick
+  
 module.exports = {
   compare,
   escapeRegExp,
   mapPathToFolder,
   mapTrackToFile,
-  getPathRegex
+  getPathRegex,
+  immediatly
 }

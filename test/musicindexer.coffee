@@ -23,10 +23,11 @@ describe('musicindexer', ->
     it('should parse metadata', (done) ->
       tracks = []
       foundTrack = (rpath, stats, path, md) ->
-        tracks.push(md)
+        tracks.push(md || {})
       finished = ->
-        tracks[0].title.should.equal('Track 1')
-        tracks[0].artist.should.eql(['Artist 1'])
+        track = tracks.filter((t) -> t.title == 'Track 1')[0]
+        track.should.ok
+        track.artist.should.eql(['Artist 1'])
         done()
       
       indexer(dataset.path)
