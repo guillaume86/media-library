@@ -26,7 +26,7 @@ class MediaLibrary
     @options = @_normalizeOptions(options)
     
     if @options.dataPath
-      dbpath = join(@options.dataPath, 'ml-tracks.db')
+      dbpath = path.join(@options.dataPath, 'ml-tracks.db')
 
     @db = new Datastore(filename: dbpath, autoload: true)
     
