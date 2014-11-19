@@ -1,12 +1,13 @@
 fs = require 'fs'
+async = require 'async'
 should = require 'should'
-MediaLibrary = require '../lib/medialibrary'
+MediaLibrary = require '../lib/medialibrary2'
 
 dataset = require './dataset'
 opts =
   paths: [dataset.path]
 
-describe('MediaLibrary', () ->
+describe('MediaLibrary2', () ->
   medialib = null
 
   beforeEach(->
@@ -15,33 +16,32 @@ describe('MediaLibrary', () ->
 
   describe('#scan()', () ->
 
-    it('should return found tracks count', (done) ->
+    it('should return found tracks', (done) ->
       medialib.scan()
-        .then((count) ->
-          count.should.equal(dataset.files.length)
+        .on('done', (tracks) ->
+          tracks.length.should.equal(dataset.files.length)
           done()
         )
-        .fail(done)
+        .on('error', done)
     )
 
     it('should notify progress', (done) ->
-      notifyCount = 0
+      trackCount = 0
       medialib.scan()
-        .progress((info) ->
-          notifyCount++
+        .on('track', ->
+          trackCount++
         )
-        .then((count) ->
-          count.should.equal(dataset.files.length)
-          notifyCount.should.equal(dataset.files.length)
+        .on('done', (tracks) ->
+          tracks.length.should.equal(dataset.files.length)
+          trackCount.should.equal(dataset.files.length)
           done()
         )
-        .fail(done)
+        .on('error', done)
     )
 
     it('should insert path and metadata', (done) ->
       medialib.scan()
-        .then(-> medialib.tracks())
-        .then((tracks) ->
+        .on('done', (tracks) ->
           track = tracks
             .filter((t) -> /Artist 1 - Track 1\.mp3$/.test(t.path))[0]
           track.should.be.ok
@@ -52,7 +52,7 @@ describe('MediaLibrary', () ->
           track.artist[0].should.ok
           done()
         )
-        .fail(done)
+        .on('error', done)
     )
 
   )
@@ -62,28 +62,26 @@ describe('MediaLibrary', () ->
 
     beforeEach((done) ->
       medialib.scan()
-      .then(-> done())
-      .fail(done)
+      .on('done', -> done())
+      .on('error', done)
     )
 
     it('should return tracks', (done) ->
-      medialib.tracks()
-        .then((tracks) ->
-          tracks.should.be.instanceof(Array)
-            .and.have.lengthOf(dataset.files.length)
-          done()
-        )
-        .fail(done)
+      medialib.tracks((err, tracks) ->
+        return done(err) if err
+        tracks.should.be.instanceof(Array)
+          .and.have.lengthOf(dataset.files.length)
+        done()
+      )
     )
 
     it('should return artist tracks when called with artist filter', (done) ->
-      medialib.tracks({ artist: 'Artist 1' })
-        .then((tracks) ->
-          tracks.should.be.instanceof(Array)
-            .and.have.lengthOf(2)
-          done()
-        )
-        .fail(done)
+      medialib.tracks({ artist: 'Artist 1' }, (err, tracks) ->
+        return done(err) if err
+        tracks.should.be.instanceof(Array)
+          .and.have.lengthOf(2)
+        done()
+      )
     )
 
   )
@@ -93,17 +91,16 @@ describe('MediaLibrary', () ->
 
     beforeEach((done) ->
       medialib.scan()
-      .then(-> done())
-      .fail(done)
+      .on('done', -> done())
+      .on('error', done)
     )
 
     it('should return distinct artists', (done) ->
-      medialib.artists()
-        .then((artists) ->
-          artists.map((a) -> a.name).should.eql(['Artist 1', 'Artist 2'])
-          done()
-        )
-        .fail(done)
+      medialib.artists((err, artists) ->
+        return done(err) if err
+        artists.map((a) -> a.name).should.eql(['Artist 1', 'Artist 2'])
+        done()
+      )
     )
 
   )
@@ -113,20 +110,19 @@ describe('MediaLibrary', () ->
 
     beforeEach((done) ->
       medialib.scan()
-      .then(-> done())
-      .fail(done)
+      .on('done', -> done())
+      .on('error', done)
     )
 
     it('should return distinct albums', (done) ->
-      medialib.albums()
-        .then((albums) ->
-          albums.map((a) -> a.artist)
-            .should.eql(['Artist 1', 'Artist 2'])
-          albums.map((a) -> a.title)
-            .should.eql(['Album 1', 'Album 2'])
-          done()
-        )
-        .fail(done)
+      medialib.albums((err, albums) ->
+        return done(err) if err
+        albums.map((a) -> a.artist)
+          .should.eql(['Artist 1', 'Artist 2'])
+        albums.map((a) -> a.title)
+          .should.eql(['Album 1', 'Album 2'])
+        done()
+      )
     )
 
   )
@@ -136,68 +132,63 @@ describe('MediaLibrary', () ->
 
     beforeEach((done) ->
       medialib.scan()
-      .then(-> done())
-      .fail(done)
+      .on('done', -> done())
+      .on('error', done)
     )
 
     it('should find by artist', (done) ->
-      medialib.findTracks(artist: 'Artist 1')
-        .then((results) ->
-          results.should.have.length(2)
-          done()
-        )
-        .fail(done)
+      medialib.findTracks({artist: 'Artist 1'}, (err, results) ->
+        return done(err) if err
+        results.should.have.length(2)
+        done()
+      )
     )
 
     it('should find by title', (done) ->
-      medialib.findTracks(title: 'Track 1')
-        .then((results) ->
-          results.should.have.length(2)
-          done()
-        )
-        .fail(done)
+      medialib.findTracks({title: 'Track 1'}, (err, results) ->
+        return done(err) if err
+        results.should.have.length(2)
+        done()
+      )
     )
 
   )
 
 
-  describe('#files()', () ->
+  describe('#files()', ->
 
     beforeEach((done) ->
       medialib.scan()
-      .then(-> done())
-      .fail(done)
+      .on('done', -> done())
+      .on('error', done)
     )
 
     it('should return root folder if called without argument', (done) ->
-      medialib.files()
-        .then((files) ->
-          files.should.be.instanceof(Array).and.have.lengthOf(1)
-          files[0].should.have.property('type', 'folder')
-          files[0].should.have.property('name', 'data')
-          done()
-        )
-        .fail(done)
+      medialib.files((err, files) ->
+        return done(err) if err
+        files.should.be.instanceof(Array).and.have.lengthOf(1)
+        files[0].should.have.property('type', 'folder')
+        files[0].should.have.property('name', 'data')
+        done()
+      )
     )
 
     it('should return subfolders when called with a folder path', (done) ->
-      medialib.files(dataset.path)
-        .then((files) ->
-          files.filter((file) -> file.type == 'folder')
-            .should.have.lengthOf(1)
-          done()
-        )
-        .fail(done)
+      medialib.files(dataset.path, (err, files) ->
+        return done(err) if err
+        files.filter((file) -> file.type == 'folder')
+          .should.have.lengthOf(1)
+        done()
+      )
     )
 
     it('should return files when called with a folder path', (done) ->
-      medialib.files(dataset.path)
-        .then((files) ->
-          files.filter((file) -> file.type == 'file')
-            .should.have.lengthOf(3)
-          done()
-        )
-        .fail(done)
+      medialib.files(dataset.path, (err, files) ->
+        return done(err) if err
+        files.filter((file) -> file.type == 'file')
+          .should.have.lengthOf(3)
+        done()
+      )
     )
 
   )

@@ -1,119 +1,110 @@
+# API:
+# library.addPath()     # 
+# library.removePath()  # 
+# library.refresh()     # search/refresh tracks
+# library.clear()       # delete eveything
+# library.clean()       # remove non existant files
+
+path = require 'path'
 fs = require 'fs'
-joinPath = require('path').join
-basename = require('path').basename
-dirname = require('path').dirname
-pathSep = require('path').sep
-Datastore = require 'nedb'
-indexPath = require './indexer'
-Q = require 'q'
+{EventEmitter} = require 'events'
 _ = require 'lodash'
+async = require 'async'
+Datastore = require 'nedb'
+indexer = require './musicindexer'
 
-# transform to promise syntax
-indexPath = Q.nfbind(indexPath)
-
-escapeRegExp = (str) ->
-  str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")
-
-mapPathToFolder = (path) ->
-  path: path
-  name: basename(path)
-  type: 'folder'
-
-mapTrackToFile = (track) ->
-  path: track.path
-  name: basename(track.path)
-  type: 'file'
-  track: track
-  
-compare = (x, y) ->
-  return 0 if x == y
-  return (if x > y then 1 else -1)
-
-normalizePath = (path) ->
-  path = path.replace(/(?:\\|\/)/g, pathSep)
-  # remove leading ./
-  if path[0...2] == ('.' + pathSep)
-    path = path[2...]
-  # remove leading /
-  # but not if "\\" because it's used in windows to access remote shares
-  if path.length > 1 and path[0] == pathSep and path[1] != pathSep
-    path = path[1...]
-  # remove trailing /
-  if path.length > 1 and path[-1...] == pathSep
-    path = path[...-1]
-  path
-
-getPathRegex = (path) ->
-  new RegExp([
-    '^',
-    escapeRegExp(path + pathSep),
-    '[^', escapeRegExp(pathSep), ']+',
-    '$'
-  ].join(""))
+{
+  compare,
+  escapeRegExp,
+  mapPathToFolder,
+  mapPathToFolder,
+  getPathRegex
+} = require './utils'
 
 class MediaLibrary
-  constructor: (@opts) ->
-    if @opts.databasePath
-      trackdbpath = joinPath(@opts.databasePath, 'ml-tracks.db')
-      #albumdbpath = joinPath(@opts.databasePath, 'ml-albums.db')
-      #artistdbpath = joinPath(@opts.databasePath, 'ml-artists.db')
+  constructor: (options) ->
+    @options = @_normalizeOptions(options)
+    
+    if @options.dataPath
+      dbpath = join(@options.dataPath, 'ml-tracks.db')
 
-    @db =
-      track: new Datastore(filename: trackdbpath, autoload: true)
-      #album: new Datastore(filename: albumdbpath, autoload: true)
-      #artist: new Datastore(filename: artistdbpath, autoload: true)
-
-    @dbfind =
-      track: Q.nbind(@db.track.find, @db.track)
-
-    @opts.paths = @opts.paths.map(normalizePath)
-
-  addTrack: (root, path, metadata) ->
-    Q.Promise((resolve, reject) =>
-      db = @db.track
-      db.findOne({ path: path }, (err, result) ->
-        if result
-          return resolve(result)
-        metadata.picture = undefined
-        metadata.root = root
-        metadata.path = path
-        db.insert(metadata, (err, metadata) ->
-          if err
-            return reject(new Error(err))
-          resolve(metadata)
-        )
-      )
-    )
-
+    @db = new Datastore(filename: dbpath, autoload: true)
+    
+  _normalizeOptions: (options) ->
+    options = _.clone(options)
+    options.paths = options.paths.map((p) -> path.resolve(p))
+    return options
+    
   # scan the paths and returns the number of found file
-  scan: ->
+  scan: (callback) ->    
     # only one scan allowed at a time
     return @_activeScan if @_activeScan
-    @_activeScan = Q.Promise((resolve, reject, notify) =>
-      trackCount = 0
-      pathPromises = for root in @opts.paths
-        addPromises = []
-        addPromise = null
-        pathDonePromise = indexPath(root, (path, metadata) =>
-          addPromise = @addTrack(root, path, metadata)
-          addPromise.then((track) -> notify(track))
-          addPromises.push(addPromise)
-          trackCount++
+    
+    # TODO: filter to speed up rescan
+    callback ?= _.noop
+    emitter = new EventEmitter()
+    @_activeScan = true
+    _addTrack = @_addTrack.bind(@)
+    async.series(@options.paths.map((dir) ->
+      (callback) ->
+        tracks = []
+        indexer(dir)
+        .on('file', (rpath, stats, fpath, md) ->
+          track = md || {}
+          track.path = fpath
+          track.size = stats.size
+          track.root = dir
+          # save some RAM and disk space
+          delete track.picture
+          
+          tracks.push(track)
+          emitter.emit('track', track)
         )
-        pathDonePromise.then(-> Q.all(addPromises))
-
-      Q.all(pathPromises)
-      .then(=>
-        @_activeScan = null
-        resolve(trackCount)
+        .on('error', (err) -> callback(err))
+        .on('done', -> callback(null, tracks))
+        .start()
+    ), (err, results) =>
+      @_activeScan = false
+      if err
+        console.error('scan error', err)
+        emitter.emit('error', err)
+        return callback(err, null)
+      tracks = _.flatten(results, true)
+      async.parallel(tracks.map((track) ->
+        (callback) ->
+          _addTrack(track, callback)
+      ), (err, tracks) ->
+        callback(null, tracks)
+        emitter.emit('done', tracks)
       )
-      .catch(reject)
+    )
+    
+    return emitter
+    
+  _addTrack: (track, callback) ->
+    db = @db
+    db.findOne({ path: track.path }, (err, foundTrack) ->
+      if foundTrack
+        # TODO: update
+        return callback(null, foundTrack)
+        
+      db.insert(track, (err, track) ->
+        if err
+          return callback(new Error(err))
+        return callback(null, track)
+      )
     )
 
-  tracks: (query = {}) ->
+  tracks: (query = {}, callback) ->
+    # handle optional query argument
+    if _.isFunction(query)
+      callback = query
+      query = {}
+      
     q = _.clone(query)
-    @dbfind.track(q)
-    .then((tracks) ->
+    @db.find(q, (err, tracks) ->
+      return callback(err) if err
+      
       # sort by artist, album, track no
       tracks.sort((t1, t2) ->
         c = compare(t1.artist?[0], t2.artist?[0])
@@ -122,24 +113,37 @@ class MediaLibrary
         return c if c != 0
         return compare(t1.track?.no, t2.track?.no)
       )
+      
+      callback(null, tracks)
     )
 
-  artists: (query = {}) ->
+  artists: (query = {}, callback) ->
+    # handle optional query argument
+    if _.isFunction(query)
+      callback = query
+      query = {}
+      
     q = _.clone(query)
     if q.name
       q.artist = query.name
       delete q.name
 
-    @dbfind.track({})
-      .then((tracks) ->
-        tracks
+    @db.find(q, (err, tracks) ->
+      return callback(err) if err
+      artists = tracks
         .filter((t) -> t.artist && t.artist.length)
         .map((t) -> t.artist[0])
-      )
-      .then(_.uniq)
-      .then((artists) -> artists.sort().map((a) -> { name: a }))
+      artists = _.uniq(artists)
+      artists = artists.sort().map((a) -> { name: a })
+      callback(null, artists)
+    )
 
-  albums: (query = {}) ->
+  albums: (query = {}, callback) ->
+    # handle optional query argument
+    if _.isFunction(query)
+      callback = query
+      query = {}
+      
     q = _.clone(query)
     if q.title
       q.album = q.title
@@ -147,24 +151,22 @@ class MediaLibrary
     if q.artist
       q.artist = [query.artist]
 
-    @dbfind.track(q)
-      .then((tracks) ->
-        tracks
+    @db.find(q, (err, tracks) ->
+      return callback(err) if err
+      albumtracks = tracks
         .filter((track) -> !!track.album)
         .map((track) ->
           title: track.album
           artist: track.albumartist?[0] || track.artist?[0]
           path: track.path
-          dirpath: dirname(track.path)
+          dirpath: path.dirname(track.path)
           track_no: track.track?.no
           year: track.year
           _id: track._id
         )
-      )
-      .then((albumtracks) ->
-        _.chain(albumtracks)
+      albums = _.chain(albumtracks)
         .groupBy('dirpath') # group by directory
-        .map((pathtracks, dirpath) -> 
+        .map((pathtracks, dirpath) ->
           _.chain(pathtracks)
           .groupBy('title')
           .map((tracks, title) ->
@@ -182,26 +184,35 @@ class MediaLibrary
           .value()
         )
         .flatten(true) # true for one level flattening
+        .sortBy('title')
         .value()
-      )
-      .then((albums) -> _.sortBy(albums, 'title'))
+        
+      callback(null, albums)
+    )
 
-  files: (path) ->
-    unless path?
-      return Q(this.opts.paths.map(mapPathToFolder))
+  files: (p, callback) ->
+    # handle optional p argument
+    if _.isFunction(p)
+      callback = p
+      p = null
+    
+    unless p?
+      return callback(null, @options.paths.map(mapPathToFolder))
     else
-      path = normalizePath(path)
-      names = fs.readdirSync(path)
+      p = path.resolve(p)
+      names = fs.readdirSync(p)
       folders = names
-        .map((name) -> joinPath(path, name))
-        .filter((path) -> fs.statSync(path).isDirectory())
+        .map((name) -> path.join(p, name))
+        .filter((p) -> fs.statSync(p).isDirectory())
         .map(mapPathToFolder)
 
-      return @dbfind.track({ path: getPathRegex(path) })
-        .then((tracks) -> folders.concat(tracks.map(mapTrackToFile)))
+      return @db.find({ path: getPathRegex(p) }, (err, tracks) -> 
+        return callback(err) if err
+        folders = folders.concat(tracks.map(mapTrackToFile))
+        callback(null, folders)
+      )
 
-
-  findTracks: (track) ->
+  findTracks: (track, callback) ->
     query = {}
     if track.artist
       artistRegex = new RegExp([escapeRegExp(track.artist)].join(""), "i")
@@ -212,7 +223,7 @@ class MediaLibrary
     if track.album
       albumRegex = new RegExp([escapeRegExp(track.album)].join(""), "i")
       query.album = albumRegex
-    @dbfind.track(query)
+    @db.find(query, callback)
 
 
 module.exports = MediaLibrary
