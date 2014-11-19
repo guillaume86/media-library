@@ -65,8 +65,9 @@ class MusicIndexer extends EventEmitter
     parser.on('done', (err) =>
       @emit('file', relativePath, stats, fullPath, metadata)
       if err
-        console.log('metadata parser error')
-        @_onError(err)
+        console.log('metadata parser error', err)
+        # don't stop scan for a parser error
+        # @_onError(err)
       readStream.close()
       @_opened--
       @_onDone()
