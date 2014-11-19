@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "async": "^0.9.0",
-    "filewalker": "^0.1.2",
+    "filewalker": "nitinhayaran/node-filewalker",
     "lodash": "^2.4.1",
     "musicmetadata": "^0.4.4",
     "nedb": "^0.10.7"
