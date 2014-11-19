@@ -1,13 +1,13 @@
 fs = require 'fs'
 async = require 'async'
 should = require 'should'
-MediaLibrary = require '../lib/medialibrary2'
+MediaLibrary = require '../lib/medialibrary'
 
 dataset = require './dataset'
 opts =
   paths: [dataset.path]
 
-describe('MediaLibrary2', () ->
+describe('MediaLibrary', () ->
   medialib = null
 
   beforeEach(->

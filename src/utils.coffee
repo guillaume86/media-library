@@ -30,6 +30,6 @@ module.exports = {
   compare,
   escapeRegExp,
   mapPathToFolder,
-  mapPathToFolder,
+  mapTrackToFile,
   getPathRegex
 }

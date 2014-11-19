@@ -17,7 +17,7 @@ indexer = require './musicindexer'
   compare,
   escapeRegExp,
   mapPathToFolder,
-  mapPathToFolder,
+  mapTrackToFile,
   getPathRegex
 } = require './utils'
 
