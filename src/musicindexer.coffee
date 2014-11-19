@@ -1,4 +1,4 @@
-{EventEmitter} = require('events')
+{EventEmitter} = require 'events'
 filewalker = require 'filewalker'
 mm = require 'musicmetadata'
 path = require 'path'
@@ -35,6 +35,14 @@ class MusicIndexer extends EventEmitter
     .on('error', @_onError.bind(@))
     .on('done', @_onWalkDone.bind(@))
     
+    # monkeypatch emit stream to prevent stream creation if filtered file
+    if options.filter
+      @_walker._emitStream = (relativePath, stats, fullPath) ->
+        if options.filter(relativePath, stats, fullPath)
+          filewalker::_emitStream.apply(@, arguments)
+        else
+          @done()
+    
   _onFile: (relativePath, stats, fullPath) ->
     # console.log('file: %s, %d bytes', relativePath, stats.size)
     
@@ -51,9 +59,9 @@ class MusicIndexer extends EventEmitter
     @emit('error', err)
     
   _onStream: (readStream, relativePath, stats, fullPath) ->
-    if @options.filter? and not @options.filter(relativePath, stats, fullPath)
-      readStream.close()
-      return
+    # if @options.filter? and not @options.filter(relativePath, stats, fullPath)
+    #   readStream.close()
+    #   return
     
     @_opened++
     metadata = null

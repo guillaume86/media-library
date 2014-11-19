@@ -36,45 +36,67 @@ class MediaLibrary
     options.paths = options.paths.map((p) -> path.resolve(p))
     return options
     
+  _prepareTrack: (rpath, stats, fpath, md, dir) ->
+    track = md || {}
+    track.path = fpath
+    track.size = stats.size
+    track.root = dir
+    # save some RAM and disk space
+    delete track.picture
+    return track
+    
+  _scanDirectory: (dir, options, emitter, callback) ->
+    self = @
+    tracks = []
+    indexer(dir, options)
+    .on('file', (rpath, stats, fpath, md) ->
+      track = self._prepareTrack(rpath, stats, fpath, md, dir)
+      tracks.push(track)
+      emitter.emit('track', track)
+    )
+    .on('error', (err) -> callback(err))
+    .on('done', -> callback(null, tracks))
+    .start()
+    
+  _getScanFilter: (exTracks) ->
+    i = 0
+    start = Date.now()
+    exPaths = exTracks.map((t) -> t.path)
+    (rpath, stats, fpath) ->        
+      index = exPaths.indexOf(fpath)
+      return true if index == -1
+      exTrack = exTracks[index]
+      return exTrack.size != stats.size
+    
   # scan the paths and returns the number of found file
   scan: (callback = _.noop) ->
     # only one scan allowed at a time
     return @_activeScan if @_activeScan
     
     # TODO: filter to speed up rescan
-    emitter = new EventEmitter()
-    @_activeScan = true
     self = @
-    async.series(@options.paths.map((dir) ->
-      (callback) ->
-        tracks = []
-        indexer(dir)
-        .on('file', (rpath, stats, fpath, md) ->
-          track = md || {}
-          track.path = fpath
-          track.size = stats.size
-          track.root = dir
-          # save some RAM and disk space
-          delete track.picture
-          
-          tracks.push(track)
-          emitter.emit('track', track)
+    @_activeScan = true
+    emitter = new EventEmitter()
+    
+    @db.find({}, (err, exTracks) ->
+      return callback(err) if err
+      filter = self._getScanFilter(exTracks)
+      async.mapSeries(self.options.paths, (dir, callback) ->
+        self._scanDirectory(dir, {filter}, emitter, callback)
+      , (err, results) ->
+        if err
+          console.error('scan error', err)
+          emitter.emit('error', err)
+          return callback(err, null)
+        tracks = _.flatten(results, true)
+        self._addTracks(tracks, (err, tracks) ->
+          return callback(err) if err
+          callback(null, tracks)
+          self._activeScan = false
+          emitter.emit('done', tracks)
         )
-        .on('error', (err) -> callback(err))
-        .on('done', -> callback(null, tracks))
-        .start()
-    ), (err, results) =>
-      if err
-        console.error('scan error', err)
-        emitter.emit('error', err)
-        return callback(err, null)
-      tracks = _.flatten(results, true)
-      self._addTracks(tracks, (err, tracks) ->
-        return callback(err) if err
-        callback(null, tracks)
-        self._activeScan = false
-        emitter.emit('done', tracks)
       )
+      
     )
     
     return emitter
