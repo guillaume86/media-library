@@ -1,10 +1,3 @@
-# API:
-# library.addPath()     # 
-# library.removePath()  # 
-# library.refresh()     # search/refresh tracks
-# library.clear()       # delete eveything
-# library.clean()       # remove non existant files
-
 path = require 'path'
 fs = require 'fs'
 {EventEmitter} = require 'events'
@@ -62,7 +55,7 @@ class MediaLibrary
     i = 0
     start = Date.now()
     exPaths = exTracks.map((t) -> t.path)
-    (rpath, stats, fpath) ->        
+    (rpath, stats, fpath) ->
       index = exPaths.indexOf(fpath)
       return true if index == -1
       exTrack = exTracks[index]
@@ -166,7 +159,7 @@ class MediaLibrary
       q.album = q.title
       delete q.title
     if q.artist
-      q.artist = [query.artist]
+      q.artist = query.artist
 
     @db.find(q, (err, tracks) ->
       return callback(err) if err
