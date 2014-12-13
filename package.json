@@ -4,7 +4,9 @@
   "description": "a media library (indexer and search/browse api)",
   "main": "./lib/medialibrary",
   "scripts": {
-    "test": "gulp test"
+    "test": "gulp test",
+    "watch": "gulp watch",
+    "build": "gulp"
   },
   "keywords": [
     "media",

@@ -4,7 +4,9 @@ fs = require 'fs'
 _ = require 'lodash'
 async = require 'async'
 Datastore = require 'nedb'
+{assign, groupBy} = require 'lodash'
 indexer = require './musicindexer'
+imageIndexer = require './imageindexer'
 
 {
   compare,
@@ -89,10 +91,46 @@ class MediaLibrary
           emitter.emit('done', tracks)
         )
       )
-      
     )
     
     return emitter
+    
+  scanCovers: (callback) ->
+    self = @
+    db = @db
+    async.mapSeries(@options.paths, (dir, callback) ->
+      imageIndexer(dir)
+        .on('error', (err) -> callback(err))
+        .on('done', (results) -> callback(null, results))
+        .start()
+    , (err, results) ->
+      # merge all results into one object
+      results = assign.apply(null, results)
+      self.tracks((err, tracks) ->
+        # group tracks by directory
+        tracksByDir = groupBy(tracks, (track) -> path.dirname(track.path))
+        # create tracks/images pairs
+        tracksImages = for dir, tracks of tracksByDir
+          images = results[dir]
+          {tracks, images}
+        # filter if no images
+        tracksImages = tracksImages.filter(({images}) -> !!images)
+        async.mapSeries(tracksImages, ({tracks, images}, callback) ->
+          covers = images.map((image) ->
+            name: path.basename(image.fullPath)
+            size: image.stats.size
+          )
+          db.update(
+            { _id: { $in: tracks.map((t) -> t._id) }},
+            { $set: { covers }},
+            { multi: true },
+            callback)
+        , (err, results) ->
+          totalResults = results.reduce(((a, b) -> a + b), 0)
+          callback(null, totalResults)
+        )
+      )
+    )
     
   _addTracks: (tracks, callback) ->
     db = @db

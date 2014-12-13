@@ -194,4 +194,34 @@ describe('MediaLibrary', () ->
   )
 
 
+  describe('#scanCovers()', ->
+
+    beforeEach((done) ->
+      medialib.scan()
+      .on('done', -> done())
+      .on('error', done)
+    )
+
+    it('should create covers property on tracks', (done) ->
+      medialib.scanCovers((err, totalUpdated) ->
+        totalUpdated.should.equal(3)
+        medialib.tracks((err, tracks) ->
+          done(err) if err?
+          tracksWithCovers = tracks.filter((track) -> track.covers)
+          tracksWithCovers.should.have.lengthOf(3)
+          tracksWithCovers[0].covers.should
+            .be.instanceOf(Array)
+            .with.lengthOf(1)
+          tracksWithCovers[0].covers[0].should.eql(
+            name: 'cover.jpg'
+            size: 631
+          )
+          done()
+        )
+      )
+    )
+
+  )
+
+
 )

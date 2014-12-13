@@ -1,19 +1,6 @@
 {EventEmitter} = require 'events'
-filewalker = require 'filewalker'
+filewalker = require './filewalker'
 mm = require 'musicmetadata'
-path = require 'path'
-
-# monkeypatch FileWalker to handle windows network paths starting with '\\'
-filewalker::_path = (p) ->
-  root = @root
-  if root[0...2] == '\\\\' and p[0...2] == '\\\\'
-    root = root[2..]
-    p = p[2..]
-    
-  if path.relative
-    return path.relative(root, p).split('\\').join('/')
-  else
-    return p.substr(root.length).split('\\').join('/')
 
 AUDIO_FILE_REGEX = /\.(?:wav|mp3|wma|flac|ape|aac|m4a|ogg)$/i
 WALKER_OPTIONS =
@@ -100,6 +87,7 @@ class MusicIndexer extends EventEmitter
       return
     @_started = Date.now()
     @_walker.walk()
+    @
     
     
 module.exports = MusicIndexer
