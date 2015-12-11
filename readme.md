@@ -8,40 +8,37 @@
 
 # Usage
 
-    var MediaLibary = require('media-library')
-    var library = new MediaLibrary({
-      // persistent storage location (optional)
-      databasePath: './'
-      // the paths to scan
-      paths: [ 'C:\\data\\music', 'C:\\Users\\me\\music' ]
+```javascript
+var MediaLibary = require('media-library');
+var library = new MediaLibrary({
+  // persistent storage location (optional)
+  dataPath: './',
+  // the paths to scan
+  paths: [ 'C:\\data\\music', 'C:\\Users\\me\\music' ]
+});
+
+// Scanning files (only needed at first start and when paths are added)
+library.scan()
+.on('track', (track) => {
+  console.log(`track: ${track.artist} - ${track.title}`);
+})
+.on('done', () => {
+    // listing all tracks
+    library.tracks((err, tracks) => console.log(tracks));
+
+    // listing artists  
+    library.artists((err, tracks) => console.log(tracks));
+
+    // searching tracks
+    library.find({ artist: 'radiohead', title: 'ok' }, (err, tracks) => {
+        console.log(tracks);
     });
-
-    // Scanning files (only needed at first start and when paths are added)
-    library.scan()
-      .then(function() {
-
-          // listing all tracks
-          library.tracks()
-            .then(function(tracks) {
-                console.log(tracks);
-            });
-
-          // listing artists  
-          library.artists()
-            .then(function(tracks) {
-                console.log(tracks);
-            });
-
-          // searching tracks
-          library.find({ artist: 'radiohead', title: 'ok' })
-            .then(function(tracks) {
-                console.log(tracks);
-            });
-      });
+});
+```
 
 # todo
 
-  - Compilations
+  - Handle compilations
 
     Could auto detect by AlbumArtist and/or heuristic + manual setting
 
