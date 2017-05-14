@@ -9,7 +9,7 @@
 # Usage
 
 ```javascript
-var MediaLibary = require('media-library');
+var MediaLibrary = require('media-library');
 var library = new MediaLibrary({
   // persistent storage location (optional)
   dataPath: './',
