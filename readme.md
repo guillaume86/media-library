@@ -30,7 +30,7 @@ library.scan()
     library.artists((err, tracks) => console.log(tracks));
 
     // searching tracks
-    library.find({ artist: 'radiohead', title: 'ok' }, (err, tracks) => {
+    library.findTracks({ artist: 'radiohead', title: 'ok' }, (err, tracks) => {
         console.log(tracks);
     });
 });
